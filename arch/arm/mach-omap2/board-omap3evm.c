@@ -33,6 +33,8 @@
 
 #include <linux/regulator/machine.h>
 #include <linux/mmc/host.h>
+#include <linux/gpio_keys.h>
+
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -511,6 +513,40 @@ static struct omap2_hsmmc_info mmc[] = {
 	{}	/* Terminator */
 };
 
+/*gpio-key start*/
+
+static struct gpio_keys_button gpio_buttons[] = {
+	{
+		.code		= BTN_EXTRA,
+		.gpio		= 149,
+		.desc		= "user key1",
+		.active_low= 1,
+		.wakeup	= 1,
+	},
+	{
+		.code		= BTN_SIDE,
+		.gpio		= 150,
+		.desc		= "user key2",
+		.active_low= 1,
+		.wakeup	= 1,
+	 },
+};
+
+static struct gpio_keys_platform_data gpio_key_info = {
+		.buttons	= gpio_buttons,
+		.nbuttons	= ARRAY_SIZE(gpio_buttons),
+};
+
+static struct platform_device keys_gpio = {
+		.name		= "gpio-keys",
+		.id		= -1,
+		.dev		= {
+		.platform_data	= &gpio_key_info,
+	},
+};
+
+/*gpio-key end*/
+
 static struct gpio_led gpio_leds[] = {
 	{
 		.name			= "omap3evm::ledb",
@@ -691,21 +727,43 @@ static uint32_t board_keymap[] = {
 	KEY(0, 1, KEY_DOWN),
 	KEY(0, 2, KEY_ENTER),
 	KEY(0, 3, KEY_M),
+	KEY(0, 4, KEY_S),
+	KEY(0, 5, KEY_D),
 
 	KEY(1, 0, KEY_RIGHT),
 	KEY(1, 1, KEY_UP),
 	KEY(1, 2, KEY_I),
 	KEY(1, 3, KEY_N),
+	KEY(1, 4, KEY_G),
+	KEY(1, 5, KEY_H),
 
 	KEY(2, 0, KEY_A),
 	KEY(2, 1, KEY_E),
 	KEY(2, 2, KEY_J),
 	KEY(2, 3, KEY_O),
+	KEY(2, 4, KEY_L),
+	KEY(2, 5, KEY_X),
 
 	KEY(3, 0, KEY_B),
 	KEY(3, 1, KEY_F),
 	KEY(3, 2, KEY_K),
-	KEY(3, 3, KEY_P)
+	KEY(3, 3, KEY_P),
+	KEY(3, 4, KEY_C),
+	KEY(3, 5, KEY_V),
+
+	KEY(4, 0, KEY_F1),
+	KEY(4, 1, KEY_F2),
+	KEY(4, 2, KEY_F3),
+	KEY(4, 3, KEY_F4),
+	KEY(4, 4, KEY_F5),
+	KEY(4, 5, KEY_F6),
+
+	KEY(5, 0, KEY_F7),
+	KEY(5, 1, KEY_F8),
+	KEY(5, 2, KEY_F9),
+	KEY(5, 3, KEY_F10),
+	KEY(5, 4, KEY_KP7),
+	KEY(5, 5, KEY_KP8),
 };
 
 static struct matrix_keymap_data board_map_data = {
@@ -715,8 +773,8 @@ static struct matrix_keymap_data board_map_data = {
 
 static struct twl4030_keypad_data omap3evm_kp_data = {
 	.keymap_data	= &board_map_data,
-	.rows		= 4,
-	.cols		= 4,
+	.rows		= 6,
+	.cols		= 6,
 	.rep		= 1,
 };
 
@@ -954,6 +1012,7 @@ static void __init omap3_evm_init_irq(void)
 
 static struct platform_device *omap3_evm_devices[] __initdata = {
 	&omap3_evm_dss_device,
+	&keys_gpio,
 };
 
 static struct ehci_hcd_omap_platform_data ehci_pdata __initdata = {
@@ -1054,6 +1113,10 @@ static struct omap_board_mux omap35x_board_mux[] __initdata = {
 				OMAP_PIN_OFF_NONE),
 	OMAP3_MUX(MCBSP1_FSR, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
 				OMAP_PIN_OFF_NONE),
+	OMAP3_MUX(UART1_RTS, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
+				OMAP_PIN_OFF_NONE),
+	OMAP3_MUX(UART1_CTS, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
+				OMAP_PIN_OFF_NONE),
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
 
@@ -1065,6 +1128,11 @@ static struct omap_board_mux omap36x_board_mux[] __initdata = {
 				OMAP_PIN_OFF_INPUT_PULLUP | OMAP_PIN_OFF_OUTPUT_LOW |
 				OMAP_PIN_OFF_WAKEUPENABLE),
 	OMAP3_MUX(MCBSP1_FSR, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
+				OMAP_PIN_OFF_NONE),
+	/*USER KEY*/
+	OMAP3_MUX(UART1_RTS, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
+				OMAP_PIN_OFF_NONE),
+	OMAP3_MUX(UART1_CTS, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
 				OMAP_PIN_OFF_NONE),
 	/* AM/DM37x EVM: DSS data bus muxed with sys_boot */
 	OMAP3_MUX(DSS_DATA18, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
