@@ -210,6 +210,15 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
 		id = (buf[2] >> 4) & 0x0f;
 		down = type != TOUCH_EVENT_UP;
 
+		if(type==TOUCH_EVENT_DOWN){
+			input_report_key(tsdata->input, BTN_TOUCH, 1);
+			input_report_abs(tsdata->input, ABS_PRESSURE, 1);
+		}
+		if(type==TOUCH_EVENT_UP){
+			input_report_key(tsdata->input, BTN_TOUCH, 0);
+			input_report_abs(tsdata->input, ABS_PRESSURE, 0);
+		}
+
 		if (!down)
 			continue;
 		input_report_abs(tsdata->input, ABS_X, x);
