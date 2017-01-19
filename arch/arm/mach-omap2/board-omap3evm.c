@@ -49,7 +49,7 @@
 #include <plat/omap-pm.h>
 #include <plat/gpmc.h>
 #include <linux/input/edt-ft5x06.h>
-
+#include <linux/i2c/at24.h>
 #include "mux.h"
 #include "sdram-micron-mt46h32m32lf-6.h"
 #include "sdram-hynix-h8kds0un0mer-4em.h"
@@ -813,6 +813,12 @@ static struct i2c_board_info __initdata omap3evm_i2c2_boardinfo[] = {
 static struct edt_ft5x06_platform_data ft5x06_pdata={
 		.irq_pin=OMAP3_EVM_TS_GPIO_cap,
 };
+static struct at24_platform_data board_eeprom = {
+		.byte_len = 4096,
+		.page_size = 32,
+		.flags = AT24_FLAG_ADDR16,
+};
+
 
 static struct i2c_board_info __initdata omap3evm_i2c3_boardinfo[] = {
 	{
@@ -820,6 +826,10 @@ static struct i2c_board_info __initdata omap3evm_i2c3_boardinfo[] = {
 		.flags = I2C_CLIENT_WAKE,
 		.irq   = OMAP_GPIO_IRQ(OMAP3_EVM_TS_GPIO_cap),
 		.platform_data =&ft5x06_pdata,
+	},
+	{
+		I2C_BOARD_INFO("24c04", 0x50), /* A0=0, A1=0, A2=0 */
+		.platform_data = &board_eeprom,
 	},
 };
 
