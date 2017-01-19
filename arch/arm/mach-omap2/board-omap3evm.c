@@ -549,11 +549,16 @@ static struct platform_device keys_gpio = {
 
 static struct gpio_led gpio_leds[] = {
 	{
-		.name			= "omap3evm::ledb",
-		/* normally not visible (board underside) */
-		.default_trigger	= "default-on",
+		.name			= "omap3evm::som-led1",
 		.gpio			= -EINVAL,	/* gets replaced */
 		.active_low		= true,
+		.default_trigger	= "heartbeat",
+	},
+	{
+		.name			= "omap3evm::som-led2",
+		.gpio			= -EINVAL,	/* gets replaced */
+		.active_low		= true,
+		.default_trigger	= "mmc0",
 	},
 };
 
@@ -569,19 +574,30 @@ static struct platform_device leds_gpio = {
 		.platform_data	= &gpio_led_info,
 	},
 };
+static void omap3evm_gpio_led_init(unsigned gpio)
+{
+
+	printk("%s tlw4030 start netxt gpio%d\n",__func__,gpio);
+
+	/* GPIO + TWL4030_GPIO_MAX==LEDA (out, heartbeat) */
+	gpio_leds[0].gpio = gpio + TWL4030_GPIO_MAX;
+	/* TWL4030_GPIO_MAX + 1 == ledB (out, mmc0) */
+	gpio_leds[1].gpio = gpio + TWL4030_GPIO_MAX + 1;
+	platform_device_register(&leds_gpio);
+}
 
 
 static int omap3evm_twl_gpio_setup(struct device *dev,
 		unsigned gpio, unsigned ngpio)
 {
 	/* gpio + 0 is "mmc0_cd" (input/IRQ) */
-	omap_mux_init_gpio(63, OMAP_PIN_INPUT);
+	/*omap_mux_init_gpio(63, OMAP_PIN_INPUT);*/
 	mmc[0].gpio_cd = gpio + 0;
 	omap2_hsmmc_init(mmc);
 
 	/* link regulators to MMC adapters */
 	omap3evm_vmmc1_supply.dev = mmc[0].dev;
-	omap3evm_vsim_supply.dev = mmc[0].dev;
+	/*omap3evm_vsim_supply.dev = mmc[0].dev;*/
 
 	/*
 	 * Most GPIOs are for USB OTG.  Some are mostly sent to
@@ -589,20 +605,17 @@ static int omap3evm_twl_gpio_setup(struct device *dev,
 	 */
 
 	/* TWL4030_GPIO_MAX + 0 == ledA, LCD Backlight control */
-	gpio_request(gpio + TWL4030_GPIO_MAX, "EN_LCD_BKL");
+	/*gpio_request(gpio + TWL4030_GPIO_MAX, "EN_LCD_BKL");
 	if (get_omap3_evm_rev() >= OMAP3EVM_BOARD_GEN_2)
 		gpio_direction_output(gpio + TWL4030_GPIO_MAX, 1);
 	else
-		gpio_direction_output(gpio + TWL4030_GPIO_MAX, 0);
+		gpio_direction_output(gpio + TWL4030_GPIO_MAX, 0);*/
 
 	/* gpio + 7 == DVI Enable */
-	gpio_request(gpio + 7, "EN_DVI");
-	gpio_direction_output(gpio + 7, 0);
+	/*gpio_request(gpio + 7, "EN_DVI");
+	  gpio_direction_output(gpio + 7, 0);*/
 
-	/* TWL4030_GPIO_MAX + 1 == ledB (out, active low LED) */
-	gpio_leds[2].gpio = gpio + TWL4030_GPIO_MAX + 1;
-
-	platform_device_register(&leds_gpio);
+	omap3evm_gpio_led_init(gpio);
 
 	return 0;
 }
