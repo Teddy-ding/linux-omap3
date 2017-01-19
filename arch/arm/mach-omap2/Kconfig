@@ -192,6 +192,16 @@ config MACH_OMAP3EVM
 	default y
 	select OMAP_PACKAGE_CBB
 
+config TL3730_USER_KEYS
+	tristate "TL3730 EVM USER KEYS"
+	depends on ARCH_OMAP3
+	default m
+
+config TL3730_USER_LEDS
+	tristate "TL3730 EVM USER LEDS"
+	depends on ARCH_OMAP3
+	default m
+
 config MACH_OMAP3517EVM
 	bool "OMAP3517/ AM3517 EVM board"
 	depends on ARCH_OMAP3

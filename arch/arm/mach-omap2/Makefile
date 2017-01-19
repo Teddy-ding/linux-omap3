@@ -22,6 +22,10 @@ obj-$(CONFIG_OMAP_MCBSP) += mcbsp.o
 obj-$(CONFIG_TWL4030_CORE)		+= omap_twl.o
 obj-$(CONFIG_REGULATOR_TPS65023)	+= pmic_tps65023.o
 
+#user key and user led
+obj-$(CONFIG_TL3730_USER_KEYS)  +=tl3730evm-user-keys.o
+obj-$(CONFIG_TL3730_USER_LEDS)  +=tl3730evm-user-leds.o
+
 # SMP support ONLY available for OMAP4
 obj-$(CONFIG_SMP)			+= omap-smp.o omap-headsmp.o
 obj-$(CONFIG_LOCAL_TIMERS)		+= timer-mpu.o

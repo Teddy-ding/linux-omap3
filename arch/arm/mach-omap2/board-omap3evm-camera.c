@@ -37,7 +37,7 @@
 #define CAM_USE_XCLKA			0
 
 #define TVP5146_DEC_RST			98
-#define T2_GPIO_2			194
+/*#define T2_GPIO_2			194*/
 #define nCAM_VD_SEL			157
 #define nCAM_VD_EN			200
 
@@ -258,6 +258,7 @@ static int __init omap3evm_cam_init(void)
 	/*
 	 * First level GPIO enable: T2_GPIO.2
 	 */
+	/*
 	ret = gpio_request(T2_GPIO_2, "T2_GPIO.2");
 	if (ret) {
 		printk(KERN_ERR "failed to get t2_gpio.2\n");
@@ -265,6 +266,7 @@ static int __init omap3evm_cam_init(void)
 	}
 	gpio_direction_output(T2_GPIO_2, 0);
 
+	*/
 	/*
 	 * nCAM_VD_SEL (GPIO157)
 	 */
@@ -306,7 +308,7 @@ err_5:
 err_4:
 	gpio_free(nCAM_VD_SEL);
 err_3:
-	gpio_free(T2_GPIO_2);
+	/*gpio_free(T2_GPIO_2);*/
 err_2:
 	regulator_put(omap3evm_2v8);
 err_1:
@@ -319,7 +321,7 @@ static void __exit omap3evm_cam_exit(void)
 {
 	gpio_free(nCAM_VD_EN);
 	gpio_free(nCAM_VD_SEL);
-	gpio_free(T2_GPIO_2);
+	/*gpio_free(T2_GPIO_2);*/
 
 	if (regulator_is_enabled(omap3evm_1v8))
 		regulator_disable(omap3evm_1v8);

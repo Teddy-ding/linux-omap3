@@ -917,7 +917,7 @@ static void __init omap3_evm_init_irq(void)
 
 static struct platform_device *omap3_evm_devices[] __initdata = {
 	&omap3_evm_dss_device,
-	&keys_gpio,
+	/*&keys_gpio,*///use module
 	&omap3evm_bl,
 };
 
