@@ -61,8 +61,20 @@
 #define OMAP3EVM_ETHR_START	0x2c000000
 #define OMAP3EVM_ETHR_SIZE	1024
 #define OMAP3EVM_ETHR_ID_REV	0x50
-#define OMAP3EVM_ETHR_GPIO_IRQ	176
-#define OMAP3EVM_SMSC911X_CS	5
+#define OMAP3EVM_ETHR_GPIO_IRQ	129
+#define OMAP3EVM_SMSC911X_CS	3
+
+static void inline __init omap3evm_dieid2mac(char* mac)
+{
+	u32 die_id_1 = omap_readl(0x4830a220);
+	u32 die_id_0 = omap_readl(0x4830a224);
+	mac[0] = 0x02;
+	mac[1] = (die_id_1) & 0xff;
+	mac[2] = (die_id_0 >>24) & 0xff;
+	mac[3] = (die_id_0 >>16) & 0xff;
+	mac[4] = (die_id_0 >>8) & 0xff;
+	mac[5] = (die_id_0) & 0xFF;
+}
 
 static u8 omap3_evm_version;
 
@@ -120,7 +132,7 @@ static struct smsc911x_platform_config smsc911x_config = {
 	.phy_interface  = PHY_INTERFACE_MODE_MII,
 	.irq_polarity   = SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
 	.irq_type       = SMSC911X_IRQ_TYPE_OPEN_DRAIN,
-	.flags          = (SMSC911X_USE_32BIT | SMSC911X_SAVE_MAC_ADDRESS),
+	.flags          = (SMSC911X_USE_16BIT | SMSC911X_SAVE_MAC_ADDRESS),
 };
 
 static struct platform_device omap3evm_smsc911x_device = {
@@ -135,15 +147,11 @@ static struct platform_device omap3evm_smsc911x_device = {
 
 static inline void __init omap3evm_init_smsc911x(void)
 {
-	int eth_cs, eth_rst;
+	int eth_cs;
 	struct clk *l3ck;
 	unsigned int rate;
 
-	if (get_omap3_evm_rev() == OMAP3EVM_BOARD_GEN_1)
-		eth_rst = 64;
-	else
-		eth_rst = 7;
-
+	omap3evm_dieid2mac(smsc911x_config.mac);
 	eth_cs = OMAP3EVM_SMSC911X_CS;
 
 	l3ck = clk_get(NULL, "l3_ck");
@@ -152,21 +160,7 @@ static inline void __init omap3evm_init_smsc911x(void)
 	else
 		rate = clk_get_rate(l3ck);
 
-	/* Configure ethernet controller reset gpio */
-	if (cpu_is_omap3430()) {
-		if (gpio_request(eth_rst, "SMSC911x gpio") < 0) {
-			pr_err(KERN_ERR "Failed to request GPIO7 for smsc911x\n");
-			return;
-		}
-
-		gpio_direction_output(eth_rst, 1);
-		/* reset pulse to ethernet controller*/
-		usleep_range(150, 220);
-		gpio_set_value(eth_rst, 0);
-		usleep_range(150, 220);
-		gpio_set_value(eth_rst, 1);
-		usleep_range(1, 2);
-	}
+	omap_mux_init_gpio(OMAP3EVM_ETHR_GPIO_IRQ, OMAP_PIN_INPUT_PULLUP);
 
 	if (gpio_request(OMAP3EVM_ETHR_GPIO_IRQ, "SMSC911x irq") < 0) {
 		printk(KERN_ERR "Failed to request GPIO%d for smsc911x IRQ\n",
@@ -175,6 +169,7 @@ static inline void __init omap3evm_init_smsc911x(void)
 	}
 
 	gpio_direction_input(OMAP3EVM_ETHR_GPIO_IRQ);
+	gpio_free(OMAP3EVM_ETHR_GPIO_IRQ);
 	platform_device_register(&omap3evm_smsc911x_device);
 }
 
