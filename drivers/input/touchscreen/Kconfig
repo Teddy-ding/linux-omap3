@@ -10,7 +10,17 @@ menuconfig INPUT_TOUCHSCREEN
 	  If unsure, say Y.
 
 if INPUT_TOUCHSCREEN
+config TOUCHSCREEN_FT5X06
+	tristate "edit ft5x06 touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have a edit ft5x06 IC and want to enable
+	  support for the built-in touchscreen.
 
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called edit_ft5x06.
 config TOUCHSCREEN_88PM860X
 	tristate "Marvell 88PM860x touchscreen"
 	depends on MFD_88PM860X

@@ -48,6 +48,7 @@
 #include <plat/display.h>
 #include <plat/omap-pm.h>
 #include <plat/gpmc.h>
+#include <linux/input/edt-ft5x06.h>
 
 #include "mux.h"
 #include "sdram-micron-mt46h32m32lf-6.h"
@@ -182,155 +183,27 @@ static inline void __init omap3evm_init_smsc911x(void) { return; }
 /*
  * OMAP3EVM LCD Panel control signals
  */
-#define OMAP3EVM_LCD_PANEL_LR		2
-#define OMAP3EVM_LCD_PANEL_UD		3
-#define OMAP3EVM_LCD_PANEL_INI		152
-#define OMAP3EVM_LCD_PANEL_ENVDD	153
-#define OMAP3EVM_LCD_PANEL_QVGA		154
-#define OMAP3EVM_LCD_PANEL_RESB		155
-#define OMAP3EVM_LCD_PANEL_BKLIGHT_GPIO	210
-#define OMAP3EVM_DVI_PANEL_EN_GPIO	199
+static int dss_enable_gpio;
+static int lcd_panel_bklight_gpio;
 
 static int lcd_enabled;
 static int dvi_enabled;
-
-static void __init omap3_evm_display_init(void)
-{
-	int r;
-
-	r = gpio_request(OMAP3EVM_LCD_PANEL_RESB, "lcd_panel_resb");
-	if (r) {
-		printk(KERN_ERR "failed to get lcd_panel_resb\n");
-		return;
-	}
-	gpio_direction_output(OMAP3EVM_LCD_PANEL_RESB, 1);
-
-	r = gpio_request(OMAP3EVM_LCD_PANEL_INI, "lcd_panel_ini");
-	if (r) {
-		printk(KERN_ERR "failed to get lcd_panel_ini\n");
-		goto err_1;
-	}
-	gpio_direction_output(OMAP3EVM_LCD_PANEL_INI, 1);
-
-	r = gpio_request(OMAP3EVM_LCD_PANEL_QVGA, "lcd_panel_qvga");
-	if (r) {
-		printk(KERN_ERR "failed to get lcd_panel_qvga\n");
-		goto err_2;
-	}
-	gpio_direction_output(OMAP3EVM_LCD_PANEL_QVGA, 0);
-
-	r = gpio_request(OMAP3EVM_LCD_PANEL_LR, "lcd_panel_lr");
-	if (r) {
-		printk(KERN_ERR "failed to get lcd_panel_lr\n");
-		goto err_3;
-	}
-	gpio_direction_output(OMAP3EVM_LCD_PANEL_LR, 1);
-
-	r = gpio_request(OMAP3EVM_LCD_PANEL_UD, "lcd_panel_ud");
-	if (r) {
-		printk(KERN_ERR "failed to get lcd_panel_ud\n");
-		goto err_4;
-	}
-	gpio_direction_output(OMAP3EVM_LCD_PANEL_UD, 1);
-
-	r = gpio_request(OMAP3EVM_LCD_PANEL_ENVDD, "lcd_panel_envdd");
-	if (r) {
-		printk(KERN_ERR "failed to get lcd_panel_envdd\n");
-		goto err_5;
-	}
-	gpio_direction_output(OMAP3EVM_LCD_PANEL_ENVDD, 0);
-
-	return;
-
-err_5:
-	gpio_free(OMAP3EVM_LCD_PANEL_UD);
-err_4:
-	gpio_free(OMAP3EVM_LCD_PANEL_LR);
-err_3:
-	gpio_free(OMAP3EVM_LCD_PANEL_QVGA);
-err_2:
-	gpio_free(OMAP3EVM_LCD_PANEL_INI);
-err_1:
-	gpio_free(OMAP3EVM_LCD_PANEL_RESB);
-
-}
-
-static int omap3evm_set_bl_intensity(struct omap_dss_device *dssdev, int level)
-{
-	unsigned char c;
-	u8 mux_pwm, enb_pwm;
-
-	if (level > dssdev->max_backlight_level)
-		level = dssdev->max_backlight_level;
-
-/*
- * PWMA register offsets (TWL4030_MODULE_PWMA)
- */
-	#define TWL_INTBR_PMBR1 0xD
-	#define TWL_INTBR_GPBR1 0xC
-	#define TWL_LED_PWMON  0x0
-	#define TWL_LED_PWMOFF 0x1
-
-	twl_i2c_read_u8(TWL4030_MODULE_INTBR, &mux_pwm, TWL_INTBR_PMBR1);
-	twl_i2c_read_u8(TWL4030_MODULE_INTBR, &enb_pwm, TWL_INTBR_GPBR1);
-
-	if (level == 0) {
-	/* disable pwm0 output and clock */
-		enb_pwm = enb_pwm & 0xFA;
-	/* change pwm0 pin to gpio pin */
-		mux_pwm = mux_pwm & 0xF3;
-		twl_i2c_write_u8(TWL4030_MODULE_INTBR,
-		enb_pwm, TWL_INTBR_GPBR1);
-		twl_i2c_write_u8(TWL4030_MODULE_INTBR,
-		mux_pwm, TWL_INTBR_PMBR1);
-		return 0;
-	}
-	if (!((enb_pwm & 0x5) && (mux_pwm & 0x0C))) {
-	/* change gpio pin to pwm0 pin */
-		mux_pwm = mux_pwm | 0x0C;
-	/* enable pwm0 output and clock*/
-		enb_pwm = enb_pwm | 0x05;
-		twl_i2c_write_u8(TWL4030_MODULE_INTBR,
-		mux_pwm, TWL_INTBR_PMBR1);
-		twl_i2c_write_u8(TWL4030_MODULE_INTBR,
-		enb_pwm, TWL_INTBR_GPBR1);
-	}
-	c = ((125 * (100 - level)) / 100) + 1;
-	c += get_omap3_evm_rev() >= OMAP3EVM_BOARD_GEN_2 ? 1 : 2;
-	twl_i2c_write_u8(TWL4030_MODULE_PWM1, 0x7F, TWL_LED_PWMOFF);
-	twl_i2c_write_u8(TWL4030_MODULE_PWM1, c, TWL_LED_PWMON);
-	printk("===================================setting bl =%d\n",c);
-
-	return 0;
-}
-
 static int omap3_evm_enable_lcd(struct omap_dss_device *dssdev)
 {
 	if (dvi_enabled) {
 		printk(KERN_ERR "cannot enable LCD, DVI is enabled\n");
 		return -EINVAL;
 	}
-	gpio_set_value(OMAP3EVM_LCD_PANEL_ENVDD, 0);
 
-	/* AM/DM37x: To get DSS working with 75MHz, we must use sys_bootx
-	 * pins for DSS, but since thes GPIO pins are reuired for LCD
-	 * orientation we must change the mux configuration to GPIO[2-3] for
-	 * SYS_BOOT[0-1]
-	 */
-	if (cpu_is_omap3630()) {
-		omap_mux_set_gpio(OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT, 2);
-		omap_mux_set_gpio(OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT, 3);
+	gpio_request(dss_enable_gpio, "EN_DVI");
+	gpio_request(lcd_panel_bklight_gpio, "EN_LCD_BKL");
 
-		gpio_direction_output(OMAP3EVM_LCD_PANEL_LR, 1);
-		gpio_direction_output(OMAP3EVM_LCD_PANEL_UD, 1);
-	}
+	gpio_direction_output(dss_enable_gpio, 1);
+	gpio_direction_output(lcd_panel_bklight_gpio, 1);
 
-	if (get_omap3_evm_rev() >= OMAP3EVM_BOARD_GEN_2)
-		gpio_set_value_cansleep(OMAP3EVM_LCD_PANEL_BKLIGHT_GPIO, 0);
-	else
-		gpio_set_value_cansleep(OMAP3EVM_LCD_PANEL_BKLIGHT_GPIO, 1);
+	gpio_free(dss_enable_gpio);
+	gpio_free(lcd_panel_bklight_gpio);
 
-	omap_pm_set_min_bus_tput(&dssdev->dev, OCP_INITIATOR_AGENT, 400000);
 
 	lcd_enabled = 1;
 	return 0;
@@ -338,26 +211,27 @@ static int omap3_evm_enable_lcd(struct omap_dss_device *dssdev)
 
 static void omap3_evm_disable_lcd(struct omap_dss_device *dssdev)
 {
-	omap_pm_set_min_bus_tput(&dssdev->dev, OCP_INITIATOR_AGENT, 0);
-	gpio_set_value(OMAP3EVM_LCD_PANEL_ENVDD, 1);
+	gpio_request(dss_enable_gpio, "EN_DVI");
+	gpio_request(lcd_panel_bklight_gpio, "EN_LCD_BKL");
 
-	if (get_omap3_evm_rev() >= OMAP3EVM_BOARD_GEN_2)
-		gpio_set_value_cansleep(OMAP3EVM_LCD_PANEL_BKLIGHT_GPIO, 1);
-	else
-		gpio_set_value_cansleep(OMAP3EVM_LCD_PANEL_BKLIGHT_GPIO, 0);
+	gpio_direction_output(dss_enable_gpio, 0);
+	gpio_direction_output(lcd_panel_bklight_gpio, 0);
+
+	gpio_free(dss_enable_gpio);
+	gpio_free(lcd_panel_bklight_gpio);
+
 
 	lcd_enabled = 0;
 }
 
 static struct omap_dss_device omap3_evm_lcd_device = {
 	.name			= "lcd",
-	.driver_name		= "sharp_ls_panel",
+	.driver_name		= "at070tn83",
 	.type			= OMAP_DISPLAY_TYPE_DPI,
 	.phy.dpi.data_lines	= 24,
 	.max_backlight_level	= 100,
-	/*.platform_enable	= omap3_evm_enable_lcd,*/
-	/*.platform_disable	= omap3_evm_disable_lcd,*/
-	.set_backlight		= omap3evm_set_bl_intensity,
+	.platform_enable	= omap3_evm_enable_lcd,
+	.platform_disable	= omap3_evm_disable_lcd,
 };
 
 static int omap3_evm_enable_tv(struct omap_dss_device *dssdev)
@@ -391,19 +265,10 @@ static int omap3_evm_enable_dvi(struct omap_dss_device *dssdev)
 		return -EINVAL;
 	}
 
-	gpio_set_value_cansleep(OMAP3EVM_DVI_PANEL_EN_GPIO, 1);
+	gpio_request(dss_enable_gpio, "EN_DVI");
+	gpio_direction_output(dss_enable_gpio, 1);
+	gpio_free(dss_enable_gpio);
 
-	/* AM/DM37x: To get DSS working with 75MHz, we must use sys_bootx
-	 * pins for DSS, but since thes GPIO pins are reuired for LCD
-	 * orientation we must change the mux configuration to GPIO[2-3] for
-	 * SYS_BOOT[0-1]
-	 */
-	if (cpu_is_omap3630()) {
-		omap_mux_set_gpio(OMAP_MUX_MODE3, 2);
-		omap_mux_set_gpio(OMAP_MUX_MODE3, 3);
-	}
-
-	omap_pm_set_min_bus_tput(&dssdev->dev, OCP_INITIATOR_AGENT, 400000);
 
 	dvi_enabled = 1;
 	return 0;
@@ -411,8 +276,10 @@ static int omap3_evm_enable_dvi(struct omap_dss_device *dssdev)
 
 static void omap3_evm_disable_dvi(struct omap_dss_device *dssdev)
 {
-	omap_pm_set_min_bus_tput(&dssdev->dev, OCP_INITIATOR_AGENT, 0);
-	gpio_set_value_cansleep(OMAP3EVM_DVI_PANEL_EN_GPIO, 0);
+	gpio_request(dss_enable_gpio, "EN_DVI");
+	gpio_direction_output(dss_enable_gpio, 0);
+	gpio_free(dss_enable_gpio);
+
 
 	dvi_enabled = 0;
 }
@@ -601,19 +468,20 @@ static int omap3evm_twl_gpio_setup(struct device *dev,
 
 	/*
 	 * Most GPIOs are for USB OTG.  Some are mostly sent to
-	 * the P2 connector; notably LEDA for the LCD backlight.
+	 * the P2 connector; notably PWM0 for the LCD backlight.
 	 */
 
-	/* TWL4030_GPIO_MAX + 0 == ledA, LCD Backlight control */
-	/*gpio_request(gpio + TWL4030_GPIO_MAX, "EN_LCD_BKL");
-	if (get_omap3_evm_rev() >= OMAP3EVM_BOARD_GEN_2)
-		gpio_direction_output(gpio + TWL4030_GPIO_MAX, 1);
-	else
-		gpio_direction_output(gpio + TWL4030_GPIO_MAX, 0);*/
+	lcd_panel_bklight_gpio = gpio + 6;
+	dss_enable_gpio = gpio + 7;
 
-	/* gpio + 7 == DVI Enable */
-	/*gpio_request(gpio + 7, "EN_DVI");
-	  gpio_direction_output(gpio + 7, 0);*/
+	gpio_request(dss_enable_gpio, "EN_DVI");
+	gpio_request(lcd_panel_bklight_gpio, "EN_LCD_BKL");
+
+	gpio_direction_output(dss_enable_gpio, 0);
+	gpio_direction_output(lcd_panel_bklight_gpio, 0);
+
+	gpio_free(dss_enable_gpio);
+	gpio_free(lcd_panel_bklight_gpio);
 
 	omap3evm_gpio_led_init(gpio);
 
@@ -809,6 +677,14 @@ static struct regulator_consumer_supply omap3_evm_vdda_dac_supply = {
 	.dev		= &omap3_evm_dss_device.dev,
 };
 
+static struct platform_device omap3evm_bl = {
+		.name   = "twl4030-pwm0-bl",
+		.id     = -1,
+		.dev	= {
+		.parent		= &omap3_evm_dss_device.dev,
+	},
+};
+
 /* VDAC for DSS driving S-Video */
 static struct regulator_init_data omap3_evm_vdac = {
 	.constraints = {
@@ -933,11 +809,17 @@ static struct i2c_board_info __initdata omap3evm_i2c2_boardinfo[] = {
 		I2C_BOARD_INFO("tmp102", 0x49),
 	},
 };
+
+static struct edt_ft5x06_platform_data ft5x06_pdata={
+		.irq_pin=OMAP3_EVM_TS_GPIO_cap,
+};
+
 static struct i2c_board_info __initdata omap3evm_i2c3_boardinfo[] = {
 	{
-		I2C_BOARD_INFO("edt_ft5x06", 0x58),
+		I2C_BOARD_INFO("edt-ft5x06", 0x38),
 		.flags = I2C_CLIENT_WAKE,
-		.irq = OMAP_GPIO_IRQ(OMAP3_EVM_TS_GPIO),
+		.irq   = OMAP_GPIO_IRQ(OMAP3_EVM_TS_GPIO_cap),
+		.platform_data =&ft5x06_pdata,
 	},
 };
 
@@ -1026,6 +908,7 @@ static void __init omap3_evm_init_irq(void)
 static struct platform_device *omap3_evm_devices[] __initdata = {
 	&omap3_evm_dss_device,
 	&keys_gpio,
+	&omap3evm_bl,
 };
 
 static struct ehci_hcd_omap_platform_data ehci_pdata __initdata = {
@@ -1120,6 +1003,11 @@ static struct omap_board_mux omap35x_board_mux[] __initdata = {
 	OMAP3_MUX(MCBSP3_DR, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
 				OMAP_PIN_OFF_INPUT_PULLUP | OMAP_PIN_OFF_OUTPUT_LOW |
 				OMAP_PIN_OFF_WAKEUPENABLE),
+		/* McSPI 1 */
+	OMAP3_MUX(MCSPI1_CLK, OMAP_MUX_MODE0 | OMAP_PIN_INPUT),
+	OMAP3_MUX(MCSPI1_SIMO, OMAP_MUX_MODE0 | OMAP_PIN_INPUT),
+	OMAP3_MUX(MCSPI1_SOMI, OMAP_MUX_MODE0 | OMAP_PIN_INPUT),
+	OMAP3_MUX(MCSPI1_CS0, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLDOWN),
 	OMAP3_MUX(SYS_BOOT5, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
 				OMAP_PIN_OFF_NONE),
 	OMAP3_MUX(GPMC_WAIT2, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
@@ -1142,18 +1030,26 @@ static struct omap_board_mux omap36x_board_mux[] __initdata = {
 				OMAP_PIN_OFF_WAKEUPENABLE),
 	OMAP3_MUX(MCBSP1_FSR, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
 				OMAP_PIN_OFF_NONE),
+
+	/* McSPI 1 */
+	OMAP3_MUX(MCSPI1_CLK, OMAP_MUX_MODE0 | OMAP_PIN_INPUT),
+	OMAP3_MUX(MCSPI1_SIMO, OMAP_MUX_MODE0 | OMAP_PIN_INPUT),
+	OMAP3_MUX(MCSPI1_SOMI, OMAP_MUX_MODE0 | OMAP_PIN_INPUT),
+	OMAP3_MUX(MCSPI1_CS0, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLDOWN),
 	/*USER KEY*/
 	OMAP3_MUX(UART1_RTS, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
 				OMAP_PIN_OFF_NONE),
 	OMAP3_MUX(UART1_CTS, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
 				OMAP_PIN_OFF_NONE),
+	/*TOUCH_INT/GPIO_140*/
+	OMAP3_MUX(MCBSP3_DX, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
+				OMAP_PIN_OFF_INPUT_PULLUP | OMAP_PIN_OFF_OUTPUT_LOW |
+				OMAP_PIN_OFF_WAKEUPENABLE),
+	/*LCD_CAP_INT/GPIO_141*/
+	OMAP3_MUX(MCBSP3_DR, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
+				OMAP_PIN_OFF_INPUT_PULLUP | OMAP_PIN_OFF_OUTPUT_LOW |
+				OMAP_PIN_OFF_WAKEUPENABLE),
 	/* AM/DM37x EVM: DSS data bus muxed with sys_boot */
-	OMAP3_MUX(DSS_DATA18, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
-	OMAP3_MUX(DSS_DATA19, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
-	OMAP3_MUX(DSS_DATA22, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
-	OMAP3_MUX(DSS_DATA21, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
-	OMAP3_MUX(DSS_DATA22, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
-	OMAP3_MUX(DSS_DATA23, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
 	OMAP3_MUX(SYS_BOOT0, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
 	OMAP3_MUX(SYS_BOOT1, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
 	OMAP3_MUX(SYS_BOOT3, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
@@ -1249,7 +1145,6 @@ static void __init omap3_evm_init(void)
 	usb_ehci_init(&ehci_pdata);
 	ads7846_dev_init();
 	omap3evm_init_smsc911x();
-	omap3_evm_display_init();
 
 	omap3_evm_pm_init();
 

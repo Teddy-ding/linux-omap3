@@ -212,7 +212,6 @@ static irqreturn_t edt_ft5x06_ts_isr(int irq, void *dev_id)
 
 		if (!down)
 			continue;
-		printk("============touch x=%d,y=%d\n",x,y);
 		input_report_abs(tsdata->input, ABS_X, x);
 		input_report_abs(tsdata->input, ABS_Y, y);
 
@@ -812,10 +811,11 @@ static int edt_ft5x06_ts_probe(struct i2c_client *client,
                 return -EINVAL;
         }
 
-        error = edt_ft5x06_ts_reset(client, pdata->reset_pin);
-        if (error)
-                return error;
-
+		if(pdata->reset_pin){
+				error = edt_ft5x06_ts_reset(client, pdata->reset_pin);
+				if (error)
+					return error;
+		}
         if (gpio_is_valid(pdata->irq_pin)) {
                 error = gpio_request_one(pdata->irq_pin,
                                          GPIOF_IN, "edt-ft5x06 irq");

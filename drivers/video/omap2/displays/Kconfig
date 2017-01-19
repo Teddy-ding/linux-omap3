@@ -14,6 +14,13 @@ config PANEL_SHARP_LS037V7DW01
         help
           LCD Panel used in TI's SDP3430 and EVM boards
 
+config PANEL_INNOLUX_AT070TN83
+        tristate "PANEL_INNOLUX_AT070TN83 LCD Panel"
+        depends on OMAP2_DSS
+        select BACKLIGHT_CLASS_DEVICE
+        help
+          LCD Panel used in TL's 3730 and EVM boards
+
 config PANEL_SHARP_LQ043T1DG01
         tristate "Sharp LQ043T1DG01 LCD Panel"
         depends on OMAP2_DSS
