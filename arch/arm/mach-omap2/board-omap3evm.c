@@ -831,6 +831,13 @@ static struct i2c_board_info __initdata omap3evm_i2c_boardinfo[] = {
 	},
 };
 
+static struct i2c_board_info __initdata omap3evm_i2c2_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("tmp102", 0x49),
+	},
+};
+
+
 static int __init omap3_evm_i2c_init(void)
 {
 	/*
@@ -843,7 +850,7 @@ static int __init omap3_evm_i2c_init(void)
 	omap_register_i2c_bus(1, 2600, omap3evm_i2c_boardinfo,
 			ARRAY_SIZE(omap3evm_i2c_boardinfo));
 	/* Bus 2 is used for Camera/Sensor interface */
-	omap_register_i2c_bus(2, 400, NULL, 0);
+	omap_register_i2c_bus(2, 400, omap3evm_i2c2_boardinfo, ARRAY_SIZE(omap3evm_i2c2_boardinfo));
 
 	omap_register_i2c_bus(3, 400, NULL, 0);
 	return 0;
