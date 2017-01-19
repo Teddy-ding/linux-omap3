@@ -53,7 +53,8 @@
 #include "hsmmc.h"
 #include "board-flash.h"
 
-#define OMAP3_EVM_TS_GPIO	175
+#define OMAP3_EVM_TS_GPIO	140
+#define OMAP3_EVM_TS_GPIO_cap	141
 #define OMAP3_EVM_EHCI_VBUS	22
 #define OMAP3_EVM_EHCI_SELECT	61
 
@@ -260,18 +261,48 @@ err_1:
 static int omap3evm_set_bl_intensity(struct omap_dss_device *dssdev, int level)
 {
 	unsigned char c;
+	u8 mux_pwm, enb_pwm;
 
 	if (level > dssdev->max_backlight_level)
 		level = dssdev->max_backlight_level;
 
-	c = ((125 * (100 - level)) / 100);
-	c += get_omap3_evm_rev() >= OMAP3EVM_BOARD_GEN_2 ? 1 : 2;
-
 /*
  * PWMA register offsets (TWL4030_MODULE_PWMA)
  */
-#define TWL_LED_PWMON	0x0
-	twl_i2c_write_u8(TWL4030_MODULE_PWMA, c, TWL_LED_PWMON);
+	#define TWL_INTBR_PMBR1 0xD
+	#define TWL_INTBR_GPBR1 0xC
+	#define TWL_LED_PWMON  0x0
+	#define TWL_LED_PWMOFF 0x1
+
+	twl_i2c_read_u8(TWL4030_MODULE_INTBR, &mux_pwm, TWL_INTBR_PMBR1);
+	twl_i2c_read_u8(TWL4030_MODULE_INTBR, &enb_pwm, TWL_INTBR_GPBR1);
+
+	if (level == 0) {
+	/* disable pwm0 output and clock */
+		enb_pwm = enb_pwm & 0xFA;
+	/* change pwm0 pin to gpio pin */
+		mux_pwm = mux_pwm & 0xF3;
+		twl_i2c_write_u8(TWL4030_MODULE_INTBR,
+		enb_pwm, TWL_INTBR_GPBR1);
+		twl_i2c_write_u8(TWL4030_MODULE_INTBR,
+		mux_pwm, TWL_INTBR_PMBR1);
+		return 0;
+	}
+	if (!((enb_pwm & 0x5) && (mux_pwm & 0x0C))) {
+	/* change gpio pin to pwm0 pin */
+		mux_pwm = mux_pwm | 0x0C;
+	/* enable pwm0 output and clock*/
+		enb_pwm = enb_pwm | 0x05;
+		twl_i2c_write_u8(TWL4030_MODULE_INTBR,
+		mux_pwm, TWL_INTBR_PMBR1);
+		twl_i2c_write_u8(TWL4030_MODULE_INTBR,
+		enb_pwm, TWL_INTBR_GPBR1);
+	}
+	c = ((125 * (100 - level)) / 100) + 1;
+	c += get_omap3_evm_rev() >= OMAP3EVM_BOARD_GEN_2 ? 1 : 2;
+	twl_i2c_write_u8(TWL4030_MODULE_PWM1, 0x7F, TWL_LED_PWMOFF);
+	twl_i2c_write_u8(TWL4030_MODULE_PWM1, c, TWL_LED_PWMON);
+	printk("===================================setting bl =%d\n",c);
 
 	return 0;
 }
@@ -325,10 +356,10 @@ static struct omap_dss_device omap3_evm_lcd_device = {
 	.name			= "lcd",
 	.driver_name		= "sharp_ls_panel",
 	.type			= OMAP_DISPLAY_TYPE_DPI,
-	.phy.dpi.data_lines	= 18,
+	.phy.dpi.data_lines	= 24,
 	.max_backlight_level	= 100,
-	.platform_enable	= omap3_evm_enable_lcd,
-	.platform_disable	= omap3_evm_disable_lcd,
+	/*.platform_enable	= omap3_evm_enable_lcd,*/
+	/*.platform_disable	= omap3_evm_disable_lcd,*/
 	.set_backlight		= omap3evm_set_bl_intensity,
 };
 
@@ -836,6 +867,14 @@ static struct i2c_board_info __initdata omap3evm_i2c2_boardinfo[] = {
 		I2C_BOARD_INFO("tmp102", 0x49),
 	},
 };
+static struct i2c_board_info __initdata omap3evm_i2c3_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("edt_ft5x06", 0x58),
+		.flags = I2C_CLIENT_WAKE,
+		.irq = OMAP_GPIO_IRQ(OMAP3_EVM_TS_GPIO),
+	},
+};
+
 
 
 static int __init omap3_evm_i2c_init(void)
@@ -852,7 +891,7 @@ static int __init omap3_evm_i2c_init(void)
 	/* Bus 2 is used for Camera/Sensor interface */
 	omap_register_i2c_bus(2, 400, omap3evm_i2c2_boardinfo, ARRAY_SIZE(omap3evm_i2c2_boardinfo));
 
-	omap_register_i2c_bus(3, 400, NULL, 0);
+	omap_register_i2c_bus(3, 400, omap3evm_i2c3_boardinfo, ARRAY_SIZE(omap3evm_i2c3_boardinfo));
 	return 0;
 }
 
@@ -1008,7 +1047,10 @@ static struct omap_board_mux omap35x_board_mux[] __initdata = {
 	OMAP3_MUX(SYS_NIRQ, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP |
 				OMAP_PIN_OFF_INPUT_PULLUP | OMAP_PIN_OFF_OUTPUT_LOW |
 				OMAP_PIN_OFF_WAKEUPENABLE),
-	OMAP3_MUX(MCSPI1_CS1, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
+	OMAP3_MUX(MCBSP3_DX, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
+				OMAP_PIN_OFF_INPUT_PULLUP | OMAP_PIN_OFF_OUTPUT_LOW |
+				OMAP_PIN_OFF_WAKEUPENABLE),
+	OMAP3_MUX(MCBSP3_DR, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
 				OMAP_PIN_OFF_INPUT_PULLUP | OMAP_PIN_OFF_OUTPUT_LOW |
 				OMAP_PIN_OFF_WAKEUPENABLE),
 	OMAP3_MUX(SYS_BOOT5, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP |
