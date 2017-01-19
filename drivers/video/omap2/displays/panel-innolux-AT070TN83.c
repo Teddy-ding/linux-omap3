@@ -37,8 +37,8 @@ static struct omap_video_timings innolux_ls_timings = {
 	.pixel_clock	= 33300,
 
 	.hsw		= 48,
-	.hfp		= 40,
-	.hbp		= 40,
+	.hfp		= 1,
+	.hbp		= 80,
 
 	.vsw		= 3,
 	.vfp		= 13,
