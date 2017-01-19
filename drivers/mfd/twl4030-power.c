@@ -677,7 +677,7 @@ static int twl4030_omap3evm_init(void)
 		pr_err("err: CFG_P2_TRANSITION\n");
 
 	/* CFG_P3_TRANSITION */
-	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, 0x00,
+	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, 0x10,
 					TWL4030_PM_MASTER_CFG_P3_TRANSITION);
 
 	if (unlikely(err))
