@@ -976,13 +976,13 @@ static struct mtd_partition omap3_evm_nand_partitions[] = {
 		.name		= "X-Loader-NAND",
 		.offset		= 0,
 		.size		= 4 * (64 * 2048),
-		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
+		/*.mask_flags	= MTD_WRITEABLE,*/	/* force read-only */
 	},
 	{
 		.name		= "U-Boot-NAND",
 		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x80000 */
 		.size		= 10 * (64 * 2048),
-		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
+		/*.mask_flags	= MTD_WRITEABLE,*/	/* force read-only */
 	},
 	{
 		.name		= "Boot Env-NAND",
