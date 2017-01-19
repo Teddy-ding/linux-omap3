@@ -234,6 +234,9 @@ CONFIG_BLK_DEV_RAM_SIZE=32768
 #
 CONFIG_EEPROM_LEGACY=y
 
+#tmp102 support
+CONFIG_SENSORS_TMP102=y
+
 #
 # SCSI device support
 #
